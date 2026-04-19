@@ -4,6 +4,9 @@ import numpy as np
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+nltk.download('punkt')
+nltk.download('punkt_tab')
+
 def splitParagraph(content:str)->dict:
     paragraph = {}
     for i, line in enumerate(content.split("## ")):
@@ -22,7 +25,16 @@ def preproccess(content : str)-> str:
     return content
 
 def summarize(text, top_n=2):
-    return 
+    # split paragraph
+    paragraphs = splitParagraph(text)
+    final_summary = []
+    for key, value in paragraphs.items():
+        value = preproccess(value)
+        sentences = tokenize(value)
+        if len(sentences)<= 2:
+                final_summary.extend(sentences)
+                continue
+    return final_summary
     
 if __name__ == "__main__":
     with open('article.md', 'r', encoding='utf-8') as file:

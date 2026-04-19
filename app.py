@@ -15,6 +15,7 @@ if uploaded_file:
 
     if st.button("Generate Summary"):
         result = summarize(content, top_n)
+        st.write("debug: ", result)
 
         st.subheader("📝 Summary")
         for r in result:
