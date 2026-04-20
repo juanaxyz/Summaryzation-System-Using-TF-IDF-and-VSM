@@ -1,11 +1,14 @@
 import re
 import nltk
+from nltk.corpus import stopwords
 import numpy as np
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('punkt_tab')
+
 
 def splitParagraph(content:str)->dict:
     paragraph = {}
@@ -25,14 +28,22 @@ def tokenize(content:str)-> str:
 
 # Fungsi untuk membersihkan teks
 def preproccess(content : str)-> str:
+    list_stopwords = set(stopwords.words('english'))
+    
     # pecah menjadi beberapa dokumen
     docs = splitDocument(content)
-    
+    clear_docs = []
+    # print(docs)
     # tokenisasi teks
     for i, doc in enumerate(docs):
         tokens = tokenize(doc)
-        print(f"Dokumen {i}: {tokens}")
-        
+        # print(f"Tokens", tokens)
+        clear_text = [w for w in tokens if w not in list_stopwords and w.isalnum()]
+        # print(clear_text)
+        clear_docs.append(clear_text)
+    
+    return clear_docs
+
     
 
 def summarize(text, top_n=2):
@@ -59,4 +70,7 @@ if __name__ == "__main__":
         #     print(f"Paragraph {key}: {value}\n")
         for key, value in paragraph.items():
             print(f"Paragraph {key}\n")
-            preproccess(value)
+            # print(f"original paragraph = {value}\n")
+            clear_docs = preproccess(value)
+            print(f"clear paragraph = {clear_docs}\n")
+            
