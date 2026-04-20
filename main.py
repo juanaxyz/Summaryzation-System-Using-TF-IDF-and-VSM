@@ -13,16 +13,27 @@ def splitParagraph(content:str)->dict:
         paragraph[i] = line
     return paragraph
     
+def splitDocument(content :str) :
+    sentences = nltk.sent_tokenize(content)
+    return sentences
+
+
 def tokenize(content:str)-> str:
-    return nltk.sent_tokenize(content)
+    tokens = nltk.word_tokenize(content)
+    tokens = re.sub(r'[^\w\s]', '', ' '.join(tokens)).lower().split()
+    return tokens
 
 # Fungsi untuk membersihkan teks
 def preproccess(content : str)-> str:
-    # Ubah teks menjadi huruf kecil
-    content = content.lower()
-    # Hapus tanda baca
-    content = re.sub(r'[^\w\s]', '', content)
-    return content
+    # pecah menjadi beberapa dokumen
+    docs = splitDocument(content)
+    
+    # tokenisasi teks
+    for i, doc in enumerate(docs):
+        tokens = tokenize(doc)
+        print(f"Dokumen {i}: {tokens}")
+        
+    
 
 def summarize(text, top_n=2):
     # split paragraph
@@ -44,5 +55,8 @@ if __name__ == "__main__":
         # print(query) # untuk melihat isi query
         paragraph = splitParagraph(content)
         
+        # for key, value in paragraph.items():
+        #     print(f"Paragraph {key}: {value}\n")
         for key, value in paragraph.items():
-            print(f"Paragraph {key}: {value}\n")
+            print(f"Paragraph {key}\n")
+            preproccess(value)
