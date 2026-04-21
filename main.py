@@ -2,8 +2,8 @@ import re
 import nltk
 from nltk.corpus import stopwords
 import numpy as np
-import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -20,6 +20,13 @@ def splitParagraph(content:str)->dict:
         if clean_line:
             paragraph[len(paragraph)] = clean_line
     return paragraph
+
+
+def getTitle(content: str) -> str:
+    for line in content.splitlines():
+        if line.startswith('# '):
+            return line[2:].strip()
+    return ""
     
 def splitDocument(content :str) :
     sentences = nltk.sent_tokenize(content)
@@ -53,54 +60,52 @@ def preproccess(content : str)-> str:
 
 def summarize(text, top_n=2):
     paragraphs = splitParagraph(text)
-    document_text = " ".join(paragraphs.values())
-    sentences = splitDocument(document_text)
+    title = getTitle(text)
+    query_tokens = preproccess(title)
+    query_doc = " ".join(query_tokens[0]) if query_tokens else ""
 
-    if not sentences:
-        return []
+    final_summary = []
 
-    if len(sentences) <= top_n:
-        return [s.strip() for s in sentences]
+    for _, paragraph in paragraphs.items():
+        sentences = splitDocument(paragraph)
+        if not sentences:
+            continue
 
-    cleaned_docs = preproccess(document_text)
-    processed_sentences = [" ".join(tokens) for tokens in cleaned_docs]
+        # Jika kalimat sedikit, langsung ambil semuanya.
+        if len(sentences) <= top_n:
+            final_summary.extend([s.strip() for s in sentences])
+            continue
 
-    # Jika setelah preprocessing kalimat kosong, fallback ke kalimat awal.
-    if not any(processed_sentences):
-        return [s.strip() for s in sentences[:top_n]]
+        cleaned_docs = preproccess(paragraph)
+        processed_sentences = [" ".join(tokens) for tokens in cleaned_docs]
 
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(processed_sentences)
-    sentence_scores = np.asarray(tfidf_matrix.sum(axis=1)).flatten()
+        # Jika query kosong atau kalimat kosong setelah preprocessing, fallback.
+        if not query_doc or not any(processed_sentences):
+            final_summary.extend([s.strip() for s in sentences[:top_n]])
+            continue
 
-    ranked_idx = np.argsort(sentence_scores)[::-1][:top_n]
-    selected_idx = sorted(ranked_idx)
-    final_summary = [sentences[i].strip() for i in selected_idx]
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(processed_sentences + [query_doc])
+
+        sentence_vectors = tfidf_matrix[:-1]
+        query_vector = tfidf_matrix[-1]
+        similarities = cosine_similarity(sentence_vectors, query_vector).flatten()
+
+        top_k = min(top_n, len(sentences))
+        ranked_idx = np.argsort(-similarities, kind='mergesort')[:top_k]
+
+        for idx in ranked_idx:
+            final_summary.append(sentences[idx].strip())
+
     return final_summary
     
 if __name__ == "__main__":
     with open('article.md', 'r', encoding='utf-8') as file:
         content = file.read()
-        query = [text for text in content.splitlines() if text.startswith('# ')]
-        query = preproccess(query[0]) # untuk mengambil judul artikel dan membersihkan teksnya
-        # print(content) # untuk melihat isi article keseluruhan
-        print(query) # untuk melihat isi query
-        paragraph = splitParagraph(content)
-        # print(paragraph)
-    
-        # for key, value in paragraph.items():
-        #     print(f"Paragraph {key}: {value}\n")
-        for key, value in paragraph.items():
-            print(f"Paragraph {key + 1}\n")
-            # print(f"original paragraph = {value}\n")
-            clear_docs = preproccess(value)
-            # print(f"clear paragraph = {clear_docs}\n")
-            
-            # untuk melihat hasil preproccessing dari setiap paragraf dalam tabel
-            formated_data = []
-            for i, words in enumerate(clear_docs):
-                formated_data.append({'dokumen': i + 1, 'Words': words})
-            df = pd.DataFrame(formated_data, columns=['dokumen', 'Words'])
-            print(df)
+        summary = summarize(content, top_n=2)
+
+        print("Summary:")
+        for sentence in summary:
+            print(f"- {sentence}")
             
             
