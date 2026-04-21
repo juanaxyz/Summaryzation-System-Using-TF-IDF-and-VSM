@@ -2,31 +2,53 @@ import re
 import nltk
 from nltk.corpus import stopwords
 import numpy as np
-import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
 
-def splitParagraph(content:str)->dict:
+def splitParagraph(content: str) -> dict:
+    content = re.sub(r'^#\s+.*$', '', content, flags=re.MULTILINE).strip()
     paragraph = {}
-    for i, line in enumerate(content.split("## ")):
-        paragraph[i] = line
+    for line in content.split("## "):
+        clean_line = line.strip()
+        if clean_line:
+            paragraph[len(paragraph)] = clean_line
     return paragraph
-    
-def splitDocument(content :str) :
-    sentences = nltk.sent_tokenize(content)
-    return sentences
 
+def getTitle(content: str) -> str:
+    for line in content.splitlines():
+        if line.startswith('# '):
+            return line[2:].strip()
+    return ""
+
+
+def splitDocument(content: str) -> list[str]:
+    content = re.sub(r'^\s*#{1,6}\s+.*$', '', content, flags=re.MULTILINE)
+    content = re.sub(r'(\*{1,2}|_{1,2})(.*?)\1', r'\2', content)
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    content = content.strip()
+
+    lines = content.splitlines()
+    if lines and not re.search(r'[.!?]$', lines[0].strip()):
+        content = '\n'.join(lines[1:]).strip()
+
+    if not content:
+        return []
+
+    sentences = nltk.sent_tokenize(content)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+    return sentences
 
 def tokenize(content:str)-> str:
     tokens = nltk.word_tokenize(content)
     tokens = re.sub(r'[^\w\s]', '', ' '.join(tokens)).lower().split()
     return tokens
 
-# Fungsi untuk membersihkan teks
+
 def preproccess(content : str)-> str:
     list_stopwords = set(stopwords.words('english'))
     
@@ -47,30 +69,59 @@ def preproccess(content : str)-> str:
     
 
 def summarize(text, top_n=2):
-    # split paragraph
     paragraphs = splitParagraph(text)
+    title = getTitle(text)
+    query_tokens = preproccess(title)
+    query_doc = " ".join([tok for sent in query_tokens for tok in sent])
+
     final_summary = []
-    for key, value in paragraphs.items():
-        value = preproccess(value)
-        sentences = tokenize(value)
-        if len(sentences)<= 2:
-                final_summary.extend(sentences)
-                continue
+
+    for _, paragraph in paragraphs.items():
+        # print(f"paragraph : {paragraph}")
+        # print("====="*20)
+        sentences = splitDocument(paragraph)
+        
+        # print(f"Sentences: {sentences}")
+        # print("====="*20)
+        
+        if not sentences:
+            continue
+
+        if len(sentences) <= top_n:
+            final_summary.extend([s.strip() for s in sentences])
+            continue
+
+        cleaned_docs = preproccess(paragraph)
+        processed_sentences = [" ".join(tokens) for tokens in cleaned_docs]
+
+        # Jika query kosong atau kalimat kosong setelah preprocessing, fallback.
+        if not query_doc or not any(processed_sentences):
+            final_summary.extend([s.strip() for s in sentences[:top_n]])
+            continue
+
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(processed_sentences + [query_doc])
+        
+        sentence_vectors = tfidf_matrix[:-1]
+        query_vector = tfidf_matrix[-1]
+        similarities = cosine_similarity(sentence_vectors, query_vector).flatten()
+
+        top_k = min(top_n, len(sentences))
+        ranked_idx = np.argsort(-similarities, kind='mergesort')[:top_k]
+
+        ranked_idx_sorted = sorted(ranked_idx)
+        for idx in ranked_idx_sorted:
+            final_summary.append(sentences[idx].strip())
+
     return final_summary
     
 if __name__ == "__main__":
     with open('article.md', 'r', encoding='utf-8') as file:
         content = file.read()
-        query = [text for text in content.splitlines() if text.startswith('# ')]
-        # print(content) # untuk melihat isi article keseluruhan
-        # print(query) # untuk melihat isi query
-        paragraph = splitParagraph(content)
-        
-        # for key, value in paragraph.items():
-        #     print(f"Paragraph {key}: {value}\n")
-        for key, value in paragraph.items():
-            print(f"Paragraph {key}\n")
-            # print(f"original paragraph = {value}\n")
-            clear_docs = preproccess(value)
-            print(f"clear paragraph = {clear_docs}\n")
+        summary = summarize(content, top_n=2)
+
+        print("Summary:")
+        for sentence in summary:
+            print(f"- {sentence}")
+            
             

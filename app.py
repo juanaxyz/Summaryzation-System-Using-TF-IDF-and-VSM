@@ -11,7 +11,7 @@ if uploaded_file:
     st.subheader("📌 Original Text")
     st.write(content)
 
-    top_n = st.slider("Jumlah kalimat", 1, 5, 2)
+    top_n = st.slider("Jumlah Rank Docs Maksimal", 1, 5, 2)
 
     if st.button("Generate Summary"):
         result = summarize(content, top_n)
