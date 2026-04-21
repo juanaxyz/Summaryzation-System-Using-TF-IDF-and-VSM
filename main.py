@@ -10,35 +10,45 @@ nltk.download('punkt')
 nltk.download('punkt_tab')
 
 
-def splitParagraph(content:str)->dict:
+def splitParagraph(content: str) -> dict:
+    content = re.sub(r'^#\s+.*$', '', content, flags=re.MULTILINE).strip()
     paragraph = {}
-    # hapus judul artikel yang menggunakan # pada awalnya
-    content = re.sub(r'^#\s+.*\n?', '', content, count=1, flags=re.MULTILINE)
-
-    for i, line in enumerate(content.split("## ")):
+    for line in content.split("## "):
         clean_line = line.strip()
         if clean_line:
             paragraph[len(paragraph)] = clean_line
     return paragraph
-
 
 def getTitle(content: str) -> str:
     for line in content.splitlines():
         if line.startswith('# '):
             return line[2:].strip()
     return ""
-    
-def splitDocument(content :str) :
-    sentences = nltk.sent_tokenize(content)
-    return sentences
 
+
+def splitDocument(content: str) -> list[str]:
+    content = re.sub(r'^\s*#{1,6}\s+.*$', '', content, flags=re.MULTILINE)
+    content = re.sub(r'(\*{1,2}|_{1,2})(.*?)\1', r'\2', content)
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    content = content.strip()
+
+    lines = content.splitlines()
+    if lines and not re.search(r'[.!?]$', lines[0].strip()):
+        content = '\n'.join(lines[1:]).strip()
+
+    if not content:
+        return []
+
+    sentences = nltk.sent_tokenize(content)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+    return sentences
 
 def tokenize(content:str)-> str:
     tokens = nltk.word_tokenize(content)
     tokens = re.sub(r'[^\w\s]', '', ' '.join(tokens)).lower().split()
     return tokens
 
-# Fungsi untuk membersihkan teks
+
 def preproccess(content : str)-> str:
     list_stopwords = set(stopwords.words('english'))
     
@@ -62,16 +72,21 @@ def summarize(text, top_n=2):
     paragraphs = splitParagraph(text)
     title = getTitle(text)
     query_tokens = preproccess(title)
-    query_doc = " ".join(query_tokens[0]) if query_tokens else ""
+    query_doc = " ".join([tok for sent in query_tokens for tok in sent])
 
     final_summary = []
 
     for _, paragraph in paragraphs.items():
+        # print(f"paragraph : {paragraph}")
+        # print("====="*20)
         sentences = splitDocument(paragraph)
+        
+        # print(f"Sentences: {sentences}")
+        # print("====="*20)
+        
         if not sentences:
             continue
 
-        # Jika kalimat sedikit, langsung ambil semuanya.
         if len(sentences) <= top_n:
             final_summary.extend([s.strip() for s in sentences])
             continue
@@ -86,7 +101,7 @@ def summarize(text, top_n=2):
 
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(processed_sentences + [query_doc])
-
+        
         sentence_vectors = tfidf_matrix[:-1]
         query_vector = tfidf_matrix[-1]
         similarities = cosine_similarity(sentence_vectors, query_vector).flatten()
@@ -94,7 +109,8 @@ def summarize(text, top_n=2):
         top_k = min(top_n, len(sentences))
         ranked_idx = np.argsort(-similarities, kind='mergesort')[:top_k]
 
-        for idx in ranked_idx:
+        ranked_idx_sorted = sorted(ranked_idx)
+        for idx in ranked_idx_sorted:
             final_summary.append(sentences[idx].strip())
 
     return final_summary
