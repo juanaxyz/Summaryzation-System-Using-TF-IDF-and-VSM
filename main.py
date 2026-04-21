@@ -2,7 +2,7 @@ import re
 import nltk
 from nltk.corpus import stopwords
 import numpy as np
-import streamlit as st
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 nltk.download('stopwords')
@@ -12,8 +12,13 @@ nltk.download('punkt_tab')
 
 def splitParagraph(content:str)->dict:
     paragraph = {}
+    # hapus judul artikel yang menggunakan # pada awalnya
+    content = re.sub(r'^#\s+.*\n?', '', content, count=1, flags=re.MULTILINE)
+
     for i, line in enumerate(content.split("## ")):
-        paragraph[i] = line
+        clean_line = line.strip()
+        if clean_line:
+            paragraph[len(paragraph)] = clean_line
     return paragraph
     
 def splitDocument(content :str) :
@@ -47,30 +52,55 @@ def preproccess(content : str)-> str:
     
 
 def summarize(text, top_n=2):
-    # split paragraph
     paragraphs = splitParagraph(text)
-    final_summary = []
-    for key, value in paragraphs.items():
-        value = preproccess(value)
-        sentences = tokenize(value)
-        if len(sentences)<= 2:
-                final_summary.extend(sentences)
-                continue
+    document_text = " ".join(paragraphs.values())
+    sentences = splitDocument(document_text)
+
+    if not sentences:
+        return []
+
+    if len(sentences) <= top_n:
+        return [s.strip() for s in sentences]
+
+    cleaned_docs = preproccess(document_text)
+    processed_sentences = [" ".join(tokens) for tokens in cleaned_docs]
+
+    # Jika setelah preprocessing kalimat kosong, fallback ke kalimat awal.
+    if not any(processed_sentences):
+        return [s.strip() for s in sentences[:top_n]]
+
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(processed_sentences)
+    sentence_scores = np.asarray(tfidf_matrix.sum(axis=1)).flatten()
+
+    ranked_idx = np.argsort(sentence_scores)[::-1][:top_n]
+    selected_idx = sorted(ranked_idx)
+    final_summary = [sentences[i].strip() for i in selected_idx]
     return final_summary
     
 if __name__ == "__main__":
     with open('article.md', 'r', encoding='utf-8') as file:
         content = file.read()
         query = [text for text in content.splitlines() if text.startswith('# ')]
+        query = preproccess(query[0]) # untuk mengambil judul artikel dan membersihkan teksnya
         # print(content) # untuk melihat isi article keseluruhan
-        # print(query) # untuk melihat isi query
+        print(query) # untuk melihat isi query
         paragraph = splitParagraph(content)
-        
+        # print(paragraph)
+    
         # for key, value in paragraph.items():
         #     print(f"Paragraph {key}: {value}\n")
         for key, value in paragraph.items():
-            print(f"Paragraph {key}\n")
+            print(f"Paragraph {key + 1}\n")
             # print(f"original paragraph = {value}\n")
             clear_docs = preproccess(value)
-            print(f"clear paragraph = {clear_docs}\n")
+            # print(f"clear paragraph = {clear_docs}\n")
+            
+            # untuk melihat hasil preproccessing dari setiap paragraf dalam tabel
+            formated_data = []
+            for i, words in enumerate(clear_docs):
+                formated_data.append({'dokumen': i + 1, 'Words': words})
+            df = pd.DataFrame(formated_data, columns=['dokumen', 'Words'])
+            print(df)
+            
             
