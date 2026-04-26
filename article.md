@@ -1,4 +1,4 @@
-# What is Anthopic's Claude Mythos and what risks does it pose?
+# What is Anthropic's Claude Mythos and what risks does it pose?
 
 16 hours ago
 

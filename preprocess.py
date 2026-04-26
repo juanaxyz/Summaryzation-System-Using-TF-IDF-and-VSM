@@ -1,3 +1,4 @@
+import string
 import re
 import nltk
 from nltk.tokenize import word_tokenize
@@ -82,10 +83,26 @@ def tokenize(text:str)-> list[str]:
     return word_tokenize(text)
 
 def removeStopwords(tokens: list[str]) -> list[str]:
-    return [word for word in tokens if word not in stopwords]
+    # Membersihkan tanda baca di sekitar kata dan membuang kata jika ada di stopwords
+    # string.punctuation berisi !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+    
+    clean_tokens = []
+    for word in tokens:
+        # Hapus tanda baca dari ujung-ujung kata (misal: "mytho." -> "mytho")
+        word = word.strip(string.punctuation)
+        
+        # Masukkan ke list jika kata tidak kosong DAN bukan stopword
+        if word and word.lower() not in stopwords :
+            clean_tokens.append(word)
+            
+    return clean_tokens
 
 def stemming(tokens: list[str]) -> list[str]:
-    return [ps.stem(word) for word in tokens]
+    return [
+        ps.stem(word)
+        for word in tokens
+        if word
+    ]
     
 
 def getTitle(content: str) -> str:
@@ -94,12 +111,16 @@ def getTitle(content: str) -> str:
             return line[2:].strip()
     return ""
 
-def preprocess(sentence: str):
-    tokens = tokenize(sentence)
-    tokens = removeStopwords(tokens)
-    tokens = stemming(tokens)
-    return tokens
 
+def preProcess(sentence: str):
+    sentence =sentence.lower()
+    tokens = tokenize(sentence)
+    # print(f"Tokens: {tokens}")
+    tokens = removeStopwords(tokens)
+    # print(f"Tokens after stopword removal: {tokens}")
+    tokens = stemming(tokens)
+    # print(f"Tokens after stemming: {tokens}")
+    return tokens
 
 if __name__ == "__main__":
 
@@ -116,5 +137,5 @@ if __name__ == "__main__":
         print(f"-- PREPROCESS ---")
         for s in sentences:
             print(f"Kalimat: {s}")
-            print(f"Preprocessed: {preprocess(s)}")
+            print(f"Preprocessed: {preProcess(s)}")
             print("===============================")
