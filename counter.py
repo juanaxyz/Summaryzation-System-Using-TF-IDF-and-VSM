@@ -29,8 +29,8 @@ def calc_idf(N, df):
     """
     menghitung inverse document frequency (IDF) untuk sebuah term dalam sebuah korpus.
     
-    :param term: Term yang ingin dihitung IDF-nya (string).
-    :param corpus: Korpus yang akan dihitung (list of list of strings).
+    :param N: Jumlah dokumen dalam korpus (int).
+    :param df: Document frequency untuk term tersebut (int).
     :return: Nilai IDF untuk term dalam korpus (float).
     """
     # return (math.log(N / df) + 1)  # Menambahkan 1 untuk menghindari pembagian dengan nol
